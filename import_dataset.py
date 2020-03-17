@@ -6,11 +6,11 @@ import pandas as pd
 
 class DatasetImporter:
 
-    wav_numbergb = 0
+    
     
     def __init__(self):
         self.path = os.path.dirname(os.path.abspath(__file__))
-        wav_numbergb = self.countWavs()
+        self.wav_numbergb = self.countWavs()
 
     def alterCSV (self):
         for root, dirs, files in os.walk(self.path):
@@ -20,28 +20,25 @@ class DatasetImporter:
                     #swap colums
                     dataFrame = pd.read_csv(file, names = ['wav_filename', 'transcript', 'wav_filesize'])
                     dataFrame = dataFrame.reindex(['wav_filename',  'wav_filesize', 'transcript'], axis="columns")
-
-                    #reorganize csv for deeeeeeeeeeep speeeech
-                    # for i, row in dataFrame.iterrows():
-
-                    #         #CHANGE PATH TO DATASET
-                    #         tmp_split = row['wav_filename'].split('/')
-                    #         tmp_split.pop(0)
-                    #         row['wav_filename'] = "/".join(tmp_split)
-                    #         row['wav_filesize'] = os.path.getsize(row['wav_filename'])
-
-                    #         #CHANGE PATH TO DATASET
-                    #         tmp_split = row['transcript'].split('/')
-                    #         tmp_split.pop(0)
-                    #         row['transcript'] = "/".join(tmp_split)
-                    #         with open(row['transcript'], 'r') as transcript_file:
-                    #             row['transcript'] = transcript_file.read() 
-
-                    #         print(row)
-                    #         exit("end of test\n")
                     
+                    #reorganize dataFrame for deeeeeeeeeeep speeeech
+                    names = []
+                    sizes = []
+                    transcripts = []
+                    for i, row in dataFrame.iterrows():
+                            #CHANGE PATH TO DATASET
+                            file_name = row['wav_filename'][3:]
+                            names.append(file_name)
+                            sizes.append(os.path.getsize(file_name))
+                            #CHANGE PATH TO DATASET
+                            with open(row['transcript'][3:], 'r') as transcript_file:
+                                transcripts.append(transcript_file.read())
+
+                    dataFrame['wav_filename'] = names
+                    dataFrame['wav_filesize'] = sizes
+                    dataFrame['transcript'] = transcripts
                     dataFrame.to_csv(file, index=False)
-                    #ctrl + K + C/U1
+                    #ctrl + K + C/U
                             
 
 
@@ -57,6 +54,11 @@ class DatasetImporter:
     def separateBetweenDirectories (self):        
         
         proccessed = 1
+        
+        # train = "/media/a/mark/DeepSpeech/data/ru_open_stt/train"
+        # dev = "/media/a/mark/DeepSpeech/data/ru_open_stt/dev"
+        # test = "/media/a/mark/DeepSpeech/data/ru_open_stt/test"
+
         train = self.path + "/train"
         dev = self.path + "/dev"
         test = self.path + "/test"
@@ -91,10 +93,10 @@ class DatasetImporter:
                     for row in data:
                         if row == ['wav_filename', 'wav_filesize', 'transcript']:
                             continue
-                        if proccessed <= wav_numbergb * 0.7:
+                        if proccessed <= self.wav_numbergb * 0.7:
                             writer_train.writerow(row)
                             proccessed += 1
-                        elif proccessed <= wav_numbergb * 0.9:
+                        elif proccessed <= self.wav_numbergb * 0.9:
                             writer_dev.writerow(row)
                             proccessed += 1
                         else:
@@ -110,23 +112,13 @@ class DatasetImporter:
         file_test.close()
         file_mem.close()
 
-        def changeRelativePaths():
-            file_train = open("/train/train.csv", "w+")
-            file_dev = open("/dev/dev.csv", "w+")
-            file_test = open("/test/test.csv", "w+")
-
-            data = csv.reader(file_train, delimeter = ',')
-            
-        
-
-        
-                            
+                                    
 
 
 importer = DatasetImporter()
 #importer.countWavs()
 importer.alterCSV()
-#importer.separateBetweenDirectories()
+importer.separateBetweenDirectories()
 
 
 
