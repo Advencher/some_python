@@ -3,46 +3,52 @@ import csv
 import sys
 from os.path import join, normpath
 import pandas as pd  
+import locale
+from progress.bar import PixelBar
+from time import sleep
+
 
 class DatasetImporter:
 
-    wav_numbergb = 0
     
+
     def __init__(self):
         self.path = os.path.dirname(os.path.abspath(__file__))
-        wav_numbergb = self.countWavs()
+        self.wav_numbergb = self.countWavs()
+        
 
     def alterCSV (self):
+
+        print(str(self.wav_numbergb))
         for root, dirs, files in os.walk(self.path):
-            for file in files:
-                if file.endswith(".csv"):
-                    print(os.path.join(root, file))
-                    #swap colums
-                    dataFrame = pd.read_csv(file, names = ['wav_filename', 'transcript', 'wav_filesize'])
-                    dataFrame = dataFrame.reindex(['wav_filename',  'wav_filesize', 'transcript'], axis="columns")
 
-                    #reorganize csv for deeeeeeeeeeep speeeech
-                    # for i, row in dataFrame.iterrows():
-
-                    #         #CHANGE PATH TO DATASET
-                    #         tmp_split = row['wav_filename'].split('/')
-                    #         tmp_split.pop(0)
-                    #         row['wav_filename'] = "/".join(tmp_split)
-                    #         row['wav_filesize'] = os.path.getsize(row['wav_filename'])
-
-                    #         #CHANGE PATH TO DATASET
-                    #         tmp_split = row['transcript'].split('/')
-                    #         tmp_split.pop(0)
-                    #         row['transcript'] = "/".join(tmp_split)
-                    #         with open(row['transcript'], 'r') as transcript_file:
-                    #             row['transcript'] = transcript_file.read() 
-
-                    #         print(row)
-                    #         exit("end of test\n")
+            with PixelBar('Processing CSV files', max=self.wav_numbergb) as bar:
+                for file in files:
+                    if file.endswith(".csv"):
+                        #print(os.path.join(root, file))
+                        #swap colums
+                        dataFrame = pd.read_csv(file, names = ['wav_filename', 'transcript', 'wav_filesize'])
+                        dataFrame = dataFrame.reindex(['wav_filename',  'wav_filesize', 'transcript'], axis="columns")
+                        names = []
+                        sizes = []
+                        transcripts = []
+                        #reorganize csv for deeeeeeeeeeep speeeech
+                        for i, row in dataFrame.iterrows():  
+                            names.append(row['wav_filename'][3:])
+                            sizes.append(os.path.getsize(row['wav_filename'][3:]))      
+                            with open(row['transcript'][3:], 'r', encoding="cp1251") as transcript_file:
+                                transcripts.append(transcript_file.read())      
+                            bar.next()
+                        dataFrame['wav_filename'] = names
+                        dataFrame['wav_filesize'] = sizes
+                        dataFrame['transcript'] = transcripts
+                        dataFrame.to_csv(file, index=False, encoding="UTF-8")
+                bar.finish()   
                     
-                    dataFrame.to_csv(file, index=False)
+
                     #ctrl + K + C/U1
-                            
+     
+
 
 
     def countWavs (self):
@@ -55,7 +61,7 @@ class DatasetImporter:
 
 
     def separateBetweenDirectories (self):        
-        
+ 
         proccessed = 1
         train = self.path + "/train"
         dev = self.path + "/dev"
@@ -65,14 +71,14 @@ class DatasetImporter:
             os.mkdir(train)
             os.mkdir(dev)
             os.mkdir(test)
+ 
+        file_train = open(train + "/train.csv", "w+")
+        file_dev = open(dev + "/dev.csv", "w+")
+        file_test = open(test + "/test.csv", "w+")
 
-        
-        file_train = open(train + "train.csv", "w+")
-        file_dev = open(dev + "dev.csv", "w+")
-        file_test = open(test + "test.csv", "w+")
 
-        if os.path.isfile(test + "proccessed_mem.txt"):
-            with open(test + "proccessed_mem.txt", "r") as f:
+        if os.path.isfile(test + "/proccessed_mem.txt"):
+            with open(test + "/proccessed_mem.txt", "r") as f:
                 proccessed = int(f.read())
         
         writer_train = csv.writer(file_train, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -84,49 +90,44 @@ class DatasetImporter:
         writer_test.writerow(['wav_filename', 'wav_filesize', 'transcript'])        
 
         #separate with rate 70-20-10 percent train, dev, test
-        for root, dirs, files in os.walk(self.path):
-            for file in files:
-                if file.endswith(".csv"):
-                    data = csv.reader(file, delimeter = ',')
-                    for row in data:
-                        if row == ['wav_filename', 'wav_filesize', 'transcript']:
-                            continue
-                        if proccessed <= wav_numbergb * 0.7:
-                            writer_train.writerow(row)
-                            proccessed += 1
-                        elif proccessed <= wav_numbergb * 0.9:
-                            writer_dev.writerow(row)
-                            proccessed += 1
-                        else:
-                            writer_test.writerow(row)
-                            proccessed += 1
+        with PixelBar('train, dev, test files', max = self.wav_numbergb) as bar:
+            for root, dirs, files in os.walk(self.path):
+                for file in files:
+                    if file.endswith(".csv") and not (file.endswith("dev.csv") or file.endswith("test.csv") or file.endswith("train.csv")):
+                        dataFrame = pd.read_csv(file)
+                        for i, row in dataFrame.iterrows():
+                            # if row == ['wav_filename', 'wav_filesize', 'transcript']:
+                            #     continue
+                            if proccessed <= self.wav_numbergb * 0.7:
+                                writer_train.writerow(row)
+                                proccessed += 1
+                            elif proccessed <= self.wav_numbergb * 0.9:
+                                writer_dev.writerow(row)
+                                proccessed += 1
+                            else:
+                                writer_test.writerow(row)
+                                proccessed += 1
+                            bar.next()
+            bar.finish()
 
-        file_mem = open(test + "proccessed_mem.txt", "w+")
+
+        file_mem = open(test + "/proccessed_mem.txt", "w+")
         file_mem.truncate(0)
-        file_mem.write(proccessed)
+        file_mem.write(str(proccessed))
 
         file_train.close()
         file_dev.close()
         file_test.close()
         file_mem.close()
 
-        def changeRelativePaths():
-            file_train = open("/train/train.csv", "w+")
-            file_dev = open("/dev/dev.csv", "w+")
-            file_test = open("/test/test.csv", "w+")
-
-            data = csv.reader(file_train, delimeter = ',')
             
         
 
-        
-                            
-
+                                
 
 importer = DatasetImporter()
-#importer.countWavs()
 importer.alterCSV()
-#importer.separateBetweenDirectories()
+importer.separateBetweenDirectories()
 
 
 
